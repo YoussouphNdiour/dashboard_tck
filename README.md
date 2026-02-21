@@ -1,89 +1,91 @@
-## Plateforme d’analyse de collecte de fonds
+# Plateforme d’analyse de collecte de fonds (Fintech)
 
-Ce projet fournit :
+Pipeline data batch, dashboards KPI et contrôles d’audit pour l’analyse des transactions de don sur plateformes Fintech.
 
-- un **script d’épuration et d’enrichissement** des données de dons (`data_processing.py`) ;
-- un **module d’audit et de sécurité** (`audit.py`) ;
-- un **dashboard Plotly (HTML)** pour le suivi des KPI de collecte (`report_plotly.py`).
+## Compétences démontrées (alignement poste Stagiaire Data Analyst – Fintech)
 
-### 1. Installation
+| **Missions** | **Réalisation dans ce projet** |
+|--------------|--------------------------------|
+| **Analyse et exploitation des données** | `data_processing.py` : mapping colonnes, épuration, enrichissement (saisonnalité, géographie) à partir d’exports Excel |
+| **KPI, dashboards et reportings** | `report_plotly.py` : KPI (total FCFA, transactions, contributeurs), graphiques temporels et par status/provider, design moderne |
+| **Audit Logs, AML/CFT** | `audit.py` : détection doublons, montants anormaux (Z-score), dates incohérentes ; génération `audit_log.json` pour traçabilité |
+| **Pipelines data (batch)** | `run_pipeline.sh` : orchestration épuration → audit → dashboard ; pipeline reproductible et automatisable |
+| **SQL** | `sql_analytics.py` + `queries.sql` : chargement CSV → SQLite, requêtes analytiques (agrégations, KPI, répartitions) |
+| **Collaboration (Git, déploiement)** | Structure claire, déploiement Render, usage de Git |
 
-Dans votre environnement (idéalement un virtualenv) :
+**Technos :** Python, pandas, Plotly, openpyxl, SQLite, SQL, Excel, Git, Render, Bash
+
+---
+
+## Installation
 
 ```bash
-cd "Plateforme d'Analyse de Collecte de Fonds TCK"
 pip install -r requirements.txt
 ```
 
-### 2. Préparation des données
-
-Placez votre export (par ex. `export.xlsx`) dans un dossier de votre choix (par ex. `~/Downloads/export.xlsx`).
-
-Lancez le script de traitement :
+## Utilisation rapide (pipeline complet)
 
 ```bash
-python data_processing.py \
-  --input "~/Downloads/export.xlsx" \
-  --output "data/processed.parquet" \
-  --sheet "NomDeLaFeuille"  # optionnel
+chmod +x run_pipeline.sh
+./run_pipeline.sh ~/Downloads/export.xlsx
+open reports/dashboard_plotly.html
 ```
 
-Ce script :
+## Pipeline détaillé
 
-- détecte automatiquement les colonnes importantes (date, montant, géographie, etc.) pour la plupart des exports ;
-- nettoie les données (dates invalides, montants non numériques, montants nuls ou négatifs) ;
-- enrichit les données avec :
-  - année, mois, trimestre ;
-  - saison (Hiver, Printemps, Été, Automne) ;
-  - pays / région / ville si disponibles ;
-  - identifiants normalisés des contributeurs et transactions si présents.
-
-### 3. Audit & sécurité
-
-Après traitement des données (`data/processed.parquet`), exécutez :
+### 1. Épuration et enrichissement
 
 ```bash
-python audit.py \
-  --input "data/processed.parquet" \
-  --output_dir "audit_reports"
+python data_processing.py --input "~/Downloads/export.xlsx" --output "data/processed.csv"
 ```
 
-Cela génère des rapports CSV :
+- Mapping colonnes (id, user, ref_commande, amount, date, status, provider, etc.)
+- Nettoyage (dates, montants numériques)
+- Enrichissement : année, mois, trimestre, saison, jour de semaine
 
-- `doublons_transactions.csv` : transactions en double (par ID transaction ou par triplet contributeur/date/montant) ;
-- `montants_anormaux.csv` : montants considérés comme extrêmes (basés sur un Z-score) ;
-- `dates_incoherentes.csv` : dates hors plage.
-
-### 4. Tableau de bord (Reporting & KPI) – version Plotly (HTML)
-
-Une fois les données enrichies prêtes (`data/processed.parquet` par exemple) :
+### 2. Audit et contrôles (Audit Logs)
 
 ```bash
-python report_plotly.py \
-  --input "data/processed.parquet" \
-  --output_html "reports/dashboard_plotly.html"
+python audit.py --input "data/processed.csv" --output_dir "audit_reports"
 ```
 
-Ensuite, ouvrez le fichier HTML généré avec votre navigateur :
+- Doublons (ID transaction, triplet contributeur/date/montant)
+- Montants anormaux (Z-score)
+- Dates hors plage
+- Fichier `audit_log.json` pour traçabilité des contrôles
+
+### 3. Dashboard KPI (Plotly)
 
 ```bash
-open reports/dashboard_plotly.html  # macOS
+python report_plotly.py --input "data/processed.csv" --output_html "reports/dashboard_plotly.html"
+open reports/dashboard_plotly.html
 ```
 
-Le dashboard Plotly propose notamment :
+### 4. Requêtes SQL analytiques
 
-- les KPI principaux : **total collecté (FCFA)**, nombre de transactions, nombre de contributeurs uniques ;
-- l’évolution temporelle mensuelle des montants collectés ;
-- la répartition par **région** et par **saison** ;
-- des filtres interactifs (année, saison, région, ville).
+```bash
+python sql_analytics.py --input "data/processed.csv"
+```
 
-### 5. Déploiement sur Render (site statique)
+Charge le CSV dans SQLite et exécute des requêtes KPI, agrégations, répartitions (voir `queries.sql`).
 
-Le dashboard peut être déployé sur [Render](https://render.com) en tant que **site statique**. Prérequis : `data/processed.csv` doit être dans le dépôt.
+## Déploiement Render
 
-**Configuration** : Static Site → Build Command : `pip install -r requirements.txt && python report_plotly.py --input data/processed.csv --output_html build/index.html` → Publish Directory : `build`. Un `render.yaml` et `.python-version` (Python 3.12) sont fournis.
+- **Build Command :** `pip install -r requirements.txt && python report_plotly.py --input data/processed.csv --output_html build/index.html`
+- **Publish Directory :** `build`
+- Prérequis : `data/processed.csv` dans le dépôt
 
-### 6. Adaptation aux spécificités de votre export
+## Structure du projet
 
-Si les noms de colonnes de votre fichier ne sont pas reconnus automatiquement, nous pourrons ajuster le mapping dans `data_processing.py` (classe `ColumnMapping`). Partagez un exemple d’en-têtes de colonnes et nous pourrons l’adapter précisément à votre cas.
-
+```
+├── data_processing.py   # Épuration, enrichissement
+├── audit.py             # Audit Logs, contrôles AML-style
+├── report_plotly.py     # Dashboard KPI
+├── sql_analytics.py     # Requêtes SQL
+├── queries.sql          # Requêtes analytiques
+├── run_pipeline.sh      # Pipeline batch
+├── data/
+│   └── processed.csv
+├── audit_reports/
+└── reports/
+```

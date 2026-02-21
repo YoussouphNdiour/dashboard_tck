@@ -1,9 +1,47 @@
+"""
+Module Audit Logs et contrôles de cohérence (Fintech).
+
+Contrôles AML/CFT-inspired :
+- Détection de doublons (éviter double transaction)
+- Montants anormaux (surveillance fraude)
+- Dates incohérentes (intégrité des données)
+"""
 from __future__ import annotations
 
+import json
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
 import pandas as pd
+
+
+def write_audit_log(
+    output_dir: Path,
+    action: str,
+    nb_records: int,
+    nb_anomalies: int = 0,
+    details: str = "",
+) -> None:
+    """Écrit une entrée dans le fichier audit_log.json (traçabilité des contrôles)."""
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    log_path = output_dir / "audit_log.json"
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+
+    entry = {
+        "timestamp": datetime.utcnow().isoformat() + "Z",
+        "action": action,
+        "nb_records_checked": nb_records,
+        "nb_anomalies": nb_anomalies,
+        "details": details,
+    }
+
+    logs = []
+    if log_path.exists():
+        logs = json.loads(log_path.read_text(encoding="utf-8"))
+    logs.append(entry)
+    log_path.write_text(json.dumps(logs, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
 def detect_duplicate_transactions(
@@ -148,6 +186,20 @@ def main():
 
     reports = run_audit_checks(df)
     save_audit_reports(reports, args.output_dir)
+
+    nb_total = len(df)
+    nb_doublons = len(reports["doublons_transactions"])
+    nb_montants = len(reports["montants_anormaux"])
+    nb_dates = len(reports["dates_incoherentes"])
+    nb_anomalies = nb_doublons + nb_montants + nb_dates
+
+    write_audit_log(
+        Path(args.output_dir),
+        action="run_audit_checks",
+        nb_records=nb_total,
+        nb_anomalies=nb_anomalies,
+        details=f"doublons={nb_doublons}, montants_anormaux={nb_montants}, dates_incoherentes={nb_dates}",
+    )
 
     print(f"Rapports d’audit générés dans: {args.output_dir}")
 
