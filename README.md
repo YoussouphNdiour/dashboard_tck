@@ -77,7 +77,13 @@ Le dashboard Plotly propose notamment :
 - la répartition par **région** et par **saison** ;
 - des filtres interactifs (année, saison, région, ville).
 
-### 5. Adaptation aux spécificités de votre export
+### 5. Déploiement sur Render (site statique)
+
+Le dashboard peut être déployé sur [Render](https://render.com) en tant que **site statique**. Prérequis : `data/processed.csv` doit être dans le dépôt.
+
+**Configuration** : Static Site → Build Command : `pip install -r requirements.txt && python report_plotly.py --input data/processed.csv --output_html build/index.html` → Publish Directory : `build`. Un `render.yaml` et `.python-version` (Python 3.12) sont fournis.
+
+### 6. Adaptation aux spécificités de votre export
 
 Si les noms de colonnes de votre fichier ne sont pas reconnus automatiquement, nous pourrons ajuster le mapping dans `data_processing.py` (classe `ColumnMapping`). Partagez un exemple d’en-têtes de colonnes et nous pourrons l’adapter précisément à votre cas.
 
